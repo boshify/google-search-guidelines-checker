@@ -2,6 +2,23 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import openai
+import PyPDF2
+from io import BytesIO
+
+def download_and_read_pdf(url):
+    response = requests.get(url)
+    response.raise_for_status()
+
+    with BytesIO(response.content) as open_pdf_file:
+        reader = PyPDF2.PdfFileReader(open_pdf_file)
+        content = ""
+        for page_num in range(reader.numPages):
+            page = reader.getPage(page_num)
+            content += page.extractText()
+    return content
+
+quality_rater_guidelines = download_and_read_pdf("https://github.com/boshify/google-search-guidelines-checker/raw/main/searchqualityevaluatorguidelines.pdf")
+helpful_content_guidelines = download_and_read_pdf("https://github.com/boshify/google-search-guidelines-checker/raw/main/Google%20Helpful%20Content%20Guidelines.pdf")
 
 def get_body_text(url):
     headers = {
@@ -16,38 +33,56 @@ def get_body_text(url):
         st.warning(f"Failed to crawl {url}. Error: {e}")
         return None
 
-def get_recommendations(body_text, guideline_type):
+def analyze_page(body_text, guideline_type):
     openai.api_key = st.secrets["OPENAI_API_KEY"]
-    messages = [
-        {"role": "system", "content": "You are a useful SEO assistant. Exclude conclusions from your output."},
-        {"role": "user", "content": f"Check if this page meets Google {guideline_type} Guidelines. You must Give specific and actionable examples for how to further improve it."
-                                    f"Do not make a recommendation if you can not provide a specific example. Recommendations should provide specific examples of text on the page."
-                                    f"Please be very scrutinizing. You should only pass a page if it is exceptional. Even if you pass a page, you must further improve it."
-                                    f"Do not assume the page does not have images or links as you may not be able to detect them."
-                                    f"If the page meets guidelines, provide specific examples of how it could be further improved. Use line breaks and spacing to make output easy to read. Content can always be improved."
-                                    f"Add a disclaimer: Mention your limitations and that it's ultimately up to the user to determine if the page meets guidelines."
-                                    f"Markdown format: Your response output must be in markdown format. Using headings and subheadings, bold, lists, and line breaks. This improves reading clarity."
-                                    f"Page: {body_text[:3000]}"}
-    ]
     
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo-16k",
-        messages=messages
+    if guideline_type == "Quality Raters":
+        guideline_content = quality_rater_guidelines
+    else:
+        guideline_content = helpful_content_guidelines
+    
+    prompt = (f"Please start by reading this document: {guideline_content}\n\n"
+              f"Next, read my article here: {body_text[:3000]}\n\n")
+    
+    if guideline_type == "Quality Raters":
+        prompt += (f"Based strictly on the guidelines or the principals outlined in the first document, analyze this article in terms of the depth and detail of the content, "
+                   f"the demonstration of expertise and credibility, and how well it fulfills the user's intent. Provide a list of specific action points for potential improvements. "
+                   f"Please exclude any generic SEO advice. Output your response in markdown format.")
+    else:
+        prompt += (f"Based strictly on the guidelines or the principals outlined in the first document, analyze this article in terms of the relevance, clarity, and utility of its content. "
+                   f"Identify areas where the content can be made more helpful for users. Provide specific action points for potential improvements. "
+                   f"Please exclude any generic SEO advice. Output your response in markdown format.")
+
+    response = openai.Completion.create(
+        model="gpt-3.5-turbo",
+        prompt=prompt,
+        max_tokens=1000
     )
     
-    return response.choices[0].message['content'].strip()
+    return response.choices[0].text.strip()
 
 def main():
     st.title('Google Quality Rater & Helpful Content Guideline Checker App')
-    guideline_type = st.selectbox("Select the guideline type:", ["Quality Raters", "Helpful Content"])
-    url = st.text_input("Enter the URL of the page you want to analyze:")
-    if st.button('Analyze'):
-        body_text = get_body_text(url)
-        if body_text:
-            recommendations = get_recommendations(body_text, guideline_type)
-            st.markdown(recommendations)
-    st.markdown("---")
-    st.markdown('Made by [JonathanBoshoff.com](https://jonathanboshoff.com)')
 
-if __name__ == "__main__":
+    url = st.text_input('Enter the URL of the page you want to analyze:')
+    
+    if url:
+        progress_bar = st.progress(0)
+        st.write("Fetching and analyzing page content...")
+
+        body_text = get_body_text(url)
+        progress_bar.progress(50)
+        
+        if body_text:
+            st.write("Analysis based on Google Quality Raters Guidelines:")
+            quality_raters_analysis = analyze_page(body_text, "Quality Raters")
+            st.markdown(quality_raters_analysis)
+
+            st.write("Analysis based on Google Helpful Content Guidelines:")
+            helpful_content_analysis = analyze_page(body_text, "Helpful Content")
+            st.markdown(helpful_content_analysis)
+
+            progress_bar.progress(100)
+
+if __name__ == '__main__':
     main()
