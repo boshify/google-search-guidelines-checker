@@ -13,7 +13,7 @@ def download_and_read_pdf(url):
         reader = PyPDF2.PdfReader(open_pdf_file)
         content = ""
         for page_num in range(len(reader.pages)):
-            page = reader.getPage(page_num)
+            page = reader.pages[page_num]
             content += page.extractText()
     return content
 
