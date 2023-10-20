@@ -14,7 +14,7 @@ def download_and_read_pdf(url):
         content = ""
         for page_num in range(len(reader.pages)):
             page = reader.pages[page_num]
-            content += page.extractText()
+            content += page.extract_text()
     return content
 
 quality_rater_guidelines = download_and_read_pdf("https://github.com/boshify/google-search-guidelines-checker/raw/main/searchqualityevaluatorguidelines.pdf")
