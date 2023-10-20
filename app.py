@@ -3,7 +3,6 @@ import requests
 from bs4 import BeautifulSoup
 import openai
 
-# Extract text content from the given URL
 def get_body_text(url):
     headers = {
         'User-Agent': 'Mozilla/5.0'
@@ -17,48 +16,38 @@ def get_body_text(url):
         st.warning(f"Failed to crawl {url}. Error: {e}")
         return None
 
-# Analyze the extracted text content based on the selected guideline
-def analyze_page(body_text, guideline_type):
+def get_recommendations(body_text, guideline_type):
     openai.api_key = st.secrets["OPENAI_API_KEY"]
+    messages = [
+        {"role": "system", "content": "You are a useful SEO assistant. Exclude conclusions from your output."},
+        {"role": "user", "content": f"Check if this page meets Google {guideline_type} Guidelines. You must Give specific and actionable examples for how to further improve it."
+                                    f"Do not make a recommendation if you can not provide a specific example. Recommendations should provide specific examples of text on the page."
+                                    f"Please be very scrutinizing. You should only pass a page if it is exceptional. Even if you pass a page, you must further improve it."
+                                    f"Do not assume the page does not have images or links as you may not be able to detect them."
+                                    f"If the page meets guidelines, provide specific examples of how it could be further improved. Use line breaks and spacing to make output easy to read. Content can always be improved."
+                                    f"Add a disclaimer: Mention your limitations and that it's ultimately up to the user to determine if the page meets guidelines."
+                                    f"Markdown format: Your response output must be in markdown format. Using headings and subheadings, bold, lists, and line breaks. This improves reading clarity."
+                                    f"Page: {body_text[:3000]}"}
+    ]
     
-    if guideline_type == "Quality Raters":
-        prompt = (f"Please start by reading this document: Google Quality Rater Guidelines\n\n"
-                  f"Next, read my article here: {body_text[:3000]}\n\n"
-                  f"Based strictly on the guidelines or the principals outlined in the first document, analyze this article in terms of the depth and detail of the content, "
-                  f"the demonstration of expertise and credibility, and how well it fulfills the user's intent. Provide a list of specific action points for potential improvements. "
-                  f"Please exclude any generic SEO advice. Output your response in markdown format.")
-    else:  # For "Helpful Content" guideline.
-        prompt = (f"Please start by reading this document: Google Helpful Content Guidelines\n\n"
-                  f"Next, read my article here: {body_text[:3000]}\n\n"
-                  f"Based strictly on the guidelines or the principals outlined in the first document, analyze this article in terms of the relevance, clarity, and utility of its content. "
-                  f"Identify areas where the content can be made more helpful for users. Provide specific action points for potential improvements. "
-                  f"Please exclude any generic SEO advice. Output your response in markdown format.")
-
-    response = openai.Completion.create(
-        model="gpt-3.5-turbo",
-        prompt=prompt,
-        max_tokens=1000
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo-16k",
+        messages=messages
     )
     
-    return response.choices[0].text.strip()
+    return response.choices[0].message['content'].strip()
 
 def main():
     st.title('Google Quality Rater & Helpful Content Guideline Checker App')
-
-    # Input URL
-    url = st.text_input('Enter the URL of the page you want to analyze:')
-    
-    if url:
+    guideline_type = st.selectbox("Select the guideline type:", ["Quality Raters", "Helpful Content"])
+    url = st.text_input("Enter the URL of the page you want to analyze:")
+    if st.button('Analyze'):
         body_text = get_body_text(url)
-        
         if body_text:
-            st.write("Analysis based on Google Quality Raters Guidelines:")
-            quality_raters_analysis = analyze_page(body_text, "Quality Raters")
-            st.markdown(quality_raters_analysis)
+            recommendations = get_recommendations(body_text, guideline_type)
+            st.markdown(recommendations)
+    st.markdown("---")
+    st.markdown('Made by [JonathanBoshoff.com](https://jonathanboshoff.com)')
 
-            st.write("Analysis based on Google Helpful Content Guidelines:")
-            helpful_content_analysis = analyze_page(body_text, "Helpful Content")
-            st.markdown(helpful_content_analysis)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
