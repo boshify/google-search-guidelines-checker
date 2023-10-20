@@ -52,12 +52,17 @@ def analyze_page(body_text, guideline_type):
         prompt += (f"Based strictly on the guidelines or the principals outlined in the first document, analyze this article in terms of the relevance, clarity, and utility of its content. "
                    f"Identify areas where the content can be made more helpful for users. Provide specific action points for potential improvements. "
                    f"Please exclude any generic SEO advice. Output your response in markdown format.")
-
-    response = openai.Completion.create(
-        model="gpt-3.5-turbo",
-        prompt=prompt,
-        max_tokens=1000
+    
+    # Adjust the call to the OpenAI API to use the chat endpoint
+    messages = [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": prompt}]
+    
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo-16k",
+        messages=messages
     )
+    
+    return response.choices[0].message['content'].strip()
+
     
     return response.choices[0].text.strip()
 
