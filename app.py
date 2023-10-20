@@ -40,9 +40,9 @@ def get_recommendations(body_text, guideline_type):
                   f"Page: {body_text[:3000]}")  # Truncate to avoid hitting API limits
 
     response = openai.Completion.create(
-        model="gpt-4-32k",
+        model="gpt-3.5-tubo-16k",
         prompt=prompt,
-        max_tokens=1000
+        max_tokens=16385
     )
 
     return response.choices[0].text.strip()
