@@ -10,7 +10,7 @@ def download_and_read_pdf(url):
     response.raise_for_status()
 
     with BytesIO(response.content) as open_pdf_file:
-        reader = PyPDF2.PdfFileReader(open_pdf_file)
+        reader = PyPDF2.PdfReader(open_pdf_file)
         content = ""
         for page_num in range(reader.numPages):
             page = reader.getPage(page_num)
